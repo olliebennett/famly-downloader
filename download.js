@@ -15,6 +15,7 @@ console.log('Starting script...')
 
 const fs = require('fs');
 const axios = require('axios').default;
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 let getPage = async (olderThan) => {
   // https://app.famly.co/api/feed/feed/feed?olderThan=2022-03-11T08%3A41%3A53%2B00%3A00

@@ -22,7 +22,7 @@ The script needs your current login session / auth from your browser to authenti
 Now you can run the download!
 
 ```sh
-NODE_NO_WARNINGS=1 node --experimental-fetch download.js
+node download.js
 ```
 
 ## Troubleshooting
