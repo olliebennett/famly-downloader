@@ -28,3 +28,5 @@ node download.js
 ## Troubleshooting
 
 - `Error from Famly: 403` - update the `headers` in your config using the latest from a logged-in Famly session in your browser.
+
+- `Error: Cannot find module './config'` - you need to rename the `config.example.js` file to `config.js` (and fill it in with your access details as described above).
