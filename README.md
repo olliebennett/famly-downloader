@@ -30,3 +30,11 @@ node download.js
 - `Error from Famly: 403` - update the `headers` in your config using the latest from a logged-in Famly session in your browser.
 
 - `Error: Cannot find module './config'` - you need to rename the `config.example.js` file to `config.js` (and fill it in with your access details as described above).
+
+## Alternatives
+
+| Repo | Language | Notes |
+| --- | --- | --- |
+| [jacobbunk/famly-fetch](https://github.com/jacobbunk/famly-fetch) | Python | ? |
+| [afrojun/famly-media-downloader](https://github.com/afrojun/famly-media-downloader) | Ruby | ? |
+| [aarislarsen/FamlyDownloader](https://github.com/aarislarsen/FamlyDownloader) | PowerShell | ? |
