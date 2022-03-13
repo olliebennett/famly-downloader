@@ -14,7 +14,6 @@ const outputDir = require('./config').outputDir;
 console.log('Starting script...')
 
 const fs = require('fs');
-const axios = require('axios').default;
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 let getPage = async (olderThan) => {
@@ -28,13 +27,6 @@ let getPage = async (olderThan) => {
     "method": "GET",
     "mode": "cors"
   });
-
-  // const resp = await axios.get(url, {
-  //   headers: headers,
-  //   referrer: "https://app.famly.co/",
-  //   mode: "cors",
-  //   credentials: 'include'
-  // });
 
   if (!resp.ok) {
     const message = `Error from Famly: ${resp.status} - See README for troubleshooting tips`;
@@ -60,22 +52,17 @@ const mkdir = (dirName) => {
 const prettyDate = (dateStr) => { return dateStr.substring(0, 19).replaceAll(' ', 'T').replaceAll(':', '') }
 
 const downloadImage = async (url, filepath) => {
-  const response = await axios({
-    url,
-    method: 'GET',
-    responseType: 'stream'
+  const res = await fetch(url);
+  const fileStream = fs.createWriteStream(filepath);
+  await new Promise((resolve, reject) => {
+    res.body.pipe(fileStream);
+    res.body.on("error", reject);
+    fileStream.on("finish", () => {
+      console.log(`Wrote image: ${filepath}`);
+      resolve()
+    });
   });
-  return new Promise((resolve, reject) => {
-    response.data
-            .pipe(fs.createWriteStream(filepath))
-            .on('error', reject)
-            .once('close', () => {
-              console.log(`Wrote image: ${filepath}`);
-              resolve(filepath)
-            });
-  });
-}
-
+};
 
 const writeTextFile = async (data, filepath) => {
   fs.writeFile(filepath, data, err => {
@@ -88,7 +75,7 @@ const writeTextFile = async (data, filepath) => {
 }
 
 const handleResponse = (resp) => {
-  console.log(`Found ${resp.feedItems.length} feed items before ${oldestCreatedAt}`);
+  console.log(`Processing ${resp.feedItems.length} feed items before ${oldestCreatedAt}`);
   resp.feedItems.forEach((feedItem) => {
     const feedItemId = feedItem.feedItemId
     const feedItemDate = feedItem.createdDate;
@@ -101,7 +88,7 @@ const handleResponse = (resp) => {
       if (images && images.length > 0) {
         const feedItemDir = prettyDate(feedItemDate);
         mkdir(`${outputDir}/${feedItemDir}`);
-        console.log(`Processing ${images.length} images:`)
+        console.log(`Downloading ${images.length} images:`)
         images.forEach(async (image) => {
           const filepath = `${prettyDate(image.createdAt.date)}-${image.imageId}.jpg`
           await downloadImage(image.big.url, `${outputDir}/${feedItemDir}/${filepath}`)
