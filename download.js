@@ -56,18 +56,20 @@ const mkdir = (dirName) => {
 
 const prettyDate = (dateStr) => dateStr.substring(0, 19).replace(/ /, 'T').replace(/:/g, '');
 
-const downloadImage = async (url, filepath) => {
+const downloadBlob = async (url, filepath) => {
   const res = await fetch(url);
   const fileStream = fs.createWriteStream(filepath);
   await new Promise((resolve, reject) => {
     res.body.pipe(fileStream);
     res.body.on("error", reject);
     fileStream.on("finish", () => {
-      console.log(`Wrote image: ${filepath}`);
+      console.log(`Wrote file: ${filepath}`);
       resolve()
     });
   });
 };
+
+const fileExists = (filepath) => fs.existsSync(filepath);
 
 const writeTextFile = async (data, filepath) => {
   fs.writeFile(filepath, data, err => {
@@ -84,26 +86,33 @@ const handleResponse = (resp) => {
   resp.feedItems.forEach((feedItem) => {
     const feedItemId = feedItem.feedItemId
     const feedItemDate = feedItem.createdDate;
-    console.log(`feedItemId: ${feedItemId} - feedItemDate: ${feedItemDate}`)
+    const logPrefix = `feedItemId: ${feedItemId} - feedItemDate: ${feedItemDate}`
     oldestCreatedAt = feedItemDate;
-    if (!ignoredFeedItems.includes(feedItem.systemPostTypeClass)) {
-      // console.log('feedItem', feedItem)
+    const feedItemDir = prettyDate(feedItemDate);
+    const alreadyProcessed = fileExists(`${outputDir}/${feedItemDir}/data.json`)
+    if (alreadyProcessed) {
+      console.log(`${logPrefix} - already processed; skipping!`)
+    } else if (ignoredFeedItems.includes(feedItem.systemPostTypeClass)) {
+      console.log(`${logPrefix} - type ${feedItem.systemPostTypeClass}; skipping!`)
+    } else {
+      console.log(`${logPrefix} - processing...`)
       const images = feedItem.images;
       // const comments = feedItem.comments;
+      mkdir(`${outputDir}/${feedItemDir}`);
       if (images && images.length > 0) {
-        const feedItemDir = prettyDate(feedItemDate);
-        mkdir(`${outputDir}/${feedItemDir}`);
         console.log(`Downloading ${images.length} images:`)
         images.forEach(async (image) => {
           const filepath = `${prettyDate(image.createdAt.date)}-${image.imageId}.jpg`
-          await downloadImage(image.big.url, `${outputDir}/${feedItemDir}/${filepath}`)
+          downloadBlob(image.big.url, `${outputDir}/${feedItemDir}/${filepath}`)
           // console.log(image)
           // console.log(` - ${image.big.width}x${image.big.height} - ${image.big.url}`);
         })
-        const textOutput = `---\ndate: ${feedItemDate}\nsender: ${feedItem.sender.name}\nreceivers:\n  - ${feedItem.receivers.join('\n  - ')}\nlikes:\n  - ${feedItem.likes.map((x) => { return `${x.name} [${x.subtitle}]`}).join('\n  - ')}\n---\n\n${feedItem.body}`
-        writeTextFile(textOutput, `${outputDir}/${feedItemDir}/details.txt`)
-        writeTextFile(JSON.stringify(feedItem), `${outputDir}/${feedItemDir}/data.json`)
+      } else {
+        console.log('No images to download')
       }
+      const textOutput = `---\ndate: ${feedItemDate}\nsender: ${feedItem.sender.name}\nreceivers:\n  - ${feedItem.receivers.join('\n  - ')}\nlikes:\n  - ${feedItem.likes.map((x) => { return `${x.name} [${x.subtitle}]`}).join('\n  - ')}\n---\n\n${feedItem.body}`
+      writeTextFile(textOutput, `${outputDir}/${feedItemDir}/details.txt`)
+      writeTextFile(JSON.stringify(feedItem), `${outputDir}/${feedItemDir}/data.json`)
     }
   });
 
