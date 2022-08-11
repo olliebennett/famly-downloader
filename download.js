@@ -42,10 +42,15 @@ var oldestCreatedAt = '2050-01-01T00:00:00+00:00'
 
 const mkdir = (dirName) => {
   fs.mkdir(dirName, (err) => {
-    if (err && err.code !== 'EEXIST') {
-      throw err;
+    if (err) {
+      if (err.code === 'EEXIST') {
+        console.log(`Folder '${dirName}' already exists`);
+      } else {
+        throw err;
+      }
+    } else {
+      console.log(`Folder '${dirName}' created successfully`);
     }
-    console.log(`Folder '${dirName}' created successfully`);
   });
 }
 
