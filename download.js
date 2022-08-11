@@ -19,7 +19,7 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 let getPage = async (olderThan) => {
   // https://app.famly.co/api/feed/feed/feed?olderThan=2022-03-11T08%3A41%3A53%2B00%3A00
   const olderThanParam = olderThan ? `&olderThan=${encodeURIComponent(olderThan)}` : ''
-  const url = `https://app.famly.co/api/feed/feed/feed?heightTarget=762${olderThanParam}`
+  const url = `https://app.famly.co/api/feed/feed/feed?heightTarget=9999${olderThanParam}`
   const resp = await fetch(url, {
     "credentials": "include",
     "headers": headers,
