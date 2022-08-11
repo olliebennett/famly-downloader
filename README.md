@@ -1,6 +1,6 @@
 # Famly.co Photo / Post Downloader
 
-This script extracts photos and descriptions from all posts in your [Famly](https://www.famly.co/) account.
+This script fetches all images and descriptions from any posts shared with you in your [Famly](https://www.famly.co/) childcare account.
 
 ## Requirements
 
