@@ -54,7 +54,7 @@ const mkdir = (dirName) => {
   });
 }
 
-const prettyDate = (dateStr) => { return dateStr.substring(0, 19).replaceAll(' ', 'T').replaceAll(':', '') }
+const prettyDate = (dateStr) => dateStr.substring(0, 19).replace(/ /, 'T').replace(/:/g, '');
 
 const downloadImage = async (url, filepath) => {
   const res = await fetch(url);
