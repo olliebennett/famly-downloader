@@ -56,6 +56,9 @@ const mkdir = (dirName) => {
 
 const prettyDate = (dateStr) => dateStr.substring(0, 19).replace(/ /, 'T').replace(/:/g, '');
 
+// Name is the adult, subtitle is the child's name (and room in parentheses)
+const formatName = (personData) => `${personData.name} [${personData.subtitle}]`;
+
 const downloadBlob = async (url, filepath) => {
   const res = await fetch(url);
   const fileStream = fs.createWriteStream(filepath);
@@ -74,11 +77,62 @@ const fileExists = (filepath) => fs.existsSync(filepath);
 const writeTextFile = async (data, filepath) => {
   fs.writeFile(filepath, data, err => {
     if (err) {
-      console.error(err)
+      console.error(`Error while writing text file: ${filepath}`, err)
       return
     }
     console.log(`Wrote file: ${filepath}`);
   })
+}
+
+const downloadImages = async (dir, images) => {
+  if (images && images.length > 0) {
+    console.log(`Downloading ${images.length} images:`)
+    images.forEach(async (image) => {
+      const filepath = `${prettyDate(image.createdAt.date)}-${image.imageId}.jpg`
+      await downloadBlob(image.big.url, `${dir}/${filepath}`)
+    })
+  } else {
+    console.log('No images to download')
+  }
+}
+
+const downloadFiles = async (dir, files) => {
+  if (files && files.length > 0) {
+    console.log(`Downloading ${files.length} files:`)
+    files.forEach(async (file) => {
+      const filepath = `${file.fileId}-${file.filename}`
+      await downloadBlob(file.url, `${dir}/${filepath}`)
+    })
+  } else {
+    console.log('No files to download')
+  }
+}
+
+const commentsText = (comments) => {
+  if (comments && comments.length > 0) {
+    const commentsList = comments.map((comment) => {
+      const commentDate = prettyDate(comment.createdDate);
+      const textOutput = `---\ndate: ${commentDate}\nsender: ${formatName(comment.sender)}\nlikes:\n  - ${comment.likes.map(formatName).join('\n  - ')}\n---\n\n${comment.body}`
+      return textOutput;
+    })
+    const commentsOutput = commentsList.join(`\n\n- - -\n\n`);
+    return `Comments: \n\n${commentsOutput}`;
+  } else {
+    return 'Comments: none'
+  }
+}
+
+const downloadItemText = async (dir, feedItem) => {
+  const textOutput = `---\ndate: ${prettyDate(feedItem.createdDate)}\nsender: ${feedItem.sender.name}\nreceivers:\n  - ${feedItem.receivers.join('\n  - ')}\nlikes:\n  - ${feedItem.likes.map(formatName).join('\n  - ')}\n---\n\n${feedItem.body}\n\n\n\n${commentsText(feedItem.comments)}`
+  await writeTextFile(textOutput, `${dir}/details.txt`)
+  await writeTextFile(JSON.stringify(feedItem), `${dir}/data.json`)
+}
+
+const downloadItem = async (dir, feedItem) => {
+  mkdir(dir);
+  await downloadImages(dir, feedItem.images);
+  await downloadFiles(dir, feedItem.files);
+  await downloadItemText(dir, feedItem)
 }
 
 const handleResponse = (resp) => {
@@ -88,31 +142,16 @@ const handleResponse = (resp) => {
     const feedItemDate = feedItem.createdDate;
     const logPrefix = `feedItemId: ${feedItemId} - feedItemDate: ${feedItemDate}`
     oldestCreatedAt = feedItemDate;
-    const feedItemDir = prettyDate(feedItemDate);
-    const alreadyProcessed = fileExists(`${outputDir}/${feedItemDir}/data.json`)
+    const feedItemDir = `${outputDir}/${prettyDate(feedItemDate)}`
+    const alreadyProcessed = fileExists(`${feedItemDir}/data.json`)
     if (alreadyProcessed) {
       console.log(`${logPrefix} - already processed; skipping!`)
     } else if (ignoredFeedItems.includes(feedItem.systemPostTypeClass)) {
       console.log(`${logPrefix} - type ${feedItem.systemPostTypeClass}; skipping!`)
     } else {
       console.log(`${logPrefix} - processing...`)
-      const images = feedItem.images;
-      // const comments = feedItem.comments;
-      mkdir(`${outputDir}/${feedItemDir}`);
-      if (images && images.length > 0) {
-        console.log(`Downloading ${images.length} images:`)
-        images.forEach(async (image) => {
-          const filepath = `${prettyDate(image.createdAt.date)}-${image.imageId}.jpg`
-          downloadBlob(image.big.url, `${outputDir}/${feedItemDir}/${filepath}`)
-          // console.log(image)
-          // console.log(` - ${image.big.width}x${image.big.height} - ${image.big.url}`);
-        })
-      } else {
-        console.log('No images to download')
-      }
-      const textOutput = `---\ndate: ${feedItemDate}\nsender: ${feedItem.sender.name}\nreceivers:\n  - ${feedItem.receivers.join('\n  - ')}\nlikes:\n  - ${feedItem.likes.map((x) => { return `${x.name} [${x.subtitle}]`}).join('\n  - ')}\n---\n\n${feedItem.body}`
-      writeTextFile(textOutput, `${outputDir}/${feedItemDir}/details.txt`)
-      writeTextFile(JSON.stringify(feedItem), `${outputDir}/${feedItemDir}/data.json`)
+      // Trigger (async) loading of the item.
+      downloadItem(feedItemDir, feedItem)
     }
   });
 
