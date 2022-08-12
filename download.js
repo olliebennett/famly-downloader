@@ -1,15 +1,10 @@
 // Configuration
 
-// Copy your
 const headers = require('./config').headers;
 
 // The folder in which to save the photos and data
 // eg: `./my_data` uses (or creates) a 'my_data' folder in the current directory
 const outputDir = require('./config').outputDir;
-
-// =================
-// Do NOT edit below
-// =================
 
 console.log('Starting script...')
 
@@ -72,6 +67,40 @@ const downloadBlob = async (url, filepath) => {
   });
 };
 
+const downloadObservation = async (dir, observation_id) => {
+  const body = {
+    "operationName": "ObservationsByIds",
+    "variables": { "observationIds": [observation_id] },
+    "query": "query ObservationsByIds($observationIds: [ObservationId!]!) {\n  childDevelopment {\n    observations(first: 100, observationIds: $observationIds, ignoreMissing: true) {\n      results {\n        ...ObservationData\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment ObservationData on Observation {\n  ...ObservationDataWithNoComments\n  comments {\n    count\n    results {\n      ...Comment\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Comment on Comment {\n  behaviors {\n    id\n    __typename\n  }\n  body\n  id\n  likes {\n    count\n    likedByMe\n    likes {\n      ...Like\n      __typename\n    }\n    __typename\n  }\n  sentAt\n  sentBy {\n    name {\n      fullName\n      __typename\n    }\n    profileImage {\n      url\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment Like on Like {\n  likedAt\n  likedBy {\n    profileImage {\n      url\n      __typename\n    }\n    name {\n      firstName\n      fullName\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ObservationDataWithNoComments on Observation {\n  children {\n    id\n    name\n    institutionId\n    __typename\n  }\n  id\n  version\n  feedItem {\n    id\n    __typename\n  }\n  createdBy {\n    name {\n      fullName\n      __typename\n    }\n    profileImage {\n      url\n      __typename\n    }\n    __typename\n  }\n  status {\n    state\n    createdAt\n    __typename\n  }\n  variant\n  settings {\n    assessmentSetting {\n      assessmentSettingsId\n      title\n      __typename\n    }\n    __typename\n  }\n  behaviors {\n    id\n    ... on BehaviorCanLinkToFrameworks {\n      ...BehaviorCanLinkToFrameworks\n      __typename\n    }\n    ... on BehaviorObservationVariantAmbiguity {\n      variants\n      __typename\n    }\n    __typename\n  }\n  remark {\n    id\n    body\n    richTextBody\n    date\n    statements {\n      refinement\n      statement {\n        body\n        id\n        area {\n          frameworkId\n          id\n          lower\n          upper\n          title\n          abbr\n          color\n          subAreas {\n            title\n            __typename\n          }\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    areas {\n      area {\n        frameworkId\n        id\n        parentId\n        title\n        description\n        abbr\n        color\n        placement\n        __typename\n      }\n      refinement\n      note\n      areaRefinementSettings {\n        ageBandSetting {\n          ...AgeBandSetting\n          __typename\n        }\n        assessmentOptionSetting {\n          ...AssessmentOptionSetting\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  nextStep {\n    id\n    body\n    richTextBody\n    __typename\n  }\n  files {\n    name\n    url\n    id\n    __typename\n  }\n  images {\n    height\n    width\n    id\n    secret {\n      crop\n      expires\n      key\n      path\n      prefix\n      __typename\n    }\n    __typename\n  }\n  video {\n    ... on TranscodingVideo {\n      id\n      __typename\n    }\n    ... on TranscodedVideo {\n      duration\n      height\n      id\n      thumbnailUrl\n      videoUrl\n      width\n      __typename\n    }\n    __typename\n  }\n  likes {\n    count\n    likedByMe\n    likes {\n      ...Like\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment BehaviorCanLinkToFrameworks on BehaviorCanLinkToFrameworks {\n  id\n  __typename\n  frameworks {\n    ...MinimalFramework\n    __typename\n  }\n}\n\nfragment MinimalFramework on Framework {\n  id\n  title\n  abbr\n  areas {\n    title\n    description\n    abbr\n    color\n    id\n    __typename\n  }\n  __typename\n}\n\nfragment AgeBandSetting on AgeBandSetting {\n  ageBandSettingId\n  id: ageBandSettingId\n  assessmentSettingsId\n  from\n  to\n  label\n  __typename\n}\n\nfragment AssessmentOptionSetting on AssessmentOptionSetting {\n  assessmentOptionSettingId\n  id: assessmentOptionSettingId\n  assessmentSettingsId\n  backgroundColor\n  fontColor\n  label\n  __typename\n}\n"
+  };
+  const resp = await fetch("https://app.famly.co/graphql", {
+    "credentials": "include",
+    "headers": headers,
+    "referrer": "https://app.famly.co/",
+    "body": JSON.stringify(body),
+    "method": "POST",
+    "mode": "cors"
+  });
+  const respJson = await resp.json();
+  await downloadObservationData(dir, respJson);
+  await writeTextFile(JSON.stringify(respJson), `${dir}/observation.json`)
+}
+
+const downloadObservationData = async (dir, observation_data) => {
+  const observation_results = observation_data.data.childDevelopment.observations.results;
+  if (observation_results.length === 1) {
+    const obs = observation_results[0];
+    const remark = obs.remark.body;
+    writeTextFile(remark, `${dir}/observation_remark.txt`)
+    obs.images.forEach(async (image) => {
+      const image_url = `${image.secret.prefix}/${image.secret.key}/${image.width}x${image.height}/${image.secret.path}?expires=${image.secret.expires}`
+      await downloadBlob(image_url, `${dir}/observation_image-${image.id}.jpg`)
+    })
+  } else {
+    throw new Error(`Found ${observation_results.length} observations; expected one!`);
+  }
+}
+
 const fileExists = (filepath) => fs.existsSync(filepath);
 
 const writeTextFile = async (data, filepath) => {
@@ -108,6 +137,22 @@ const downloadFiles = async (dir, files) => {
   }
 }
 
+const downloadEmbed = async (dir, embed) => {
+  if (embed) {
+    if (embed.type == 'Observation') {
+      console.log('Downloading embedded observation')
+      await downloadObservation(dir, embed.observationId)
+    } else if (embed.type === 'Daycare.Invoice') {
+      console.log(`Embed skipped: ${embed.type}`)
+    } else {
+      console.log('Embed:', embed)
+      throw new Error(`Unhandled embed type: ${embed.type}`)
+    }
+  } else {
+    console.log('No embed found')
+  }
+}
+
 const commentsText = (comments) => {
   if (comments && comments.length > 0) {
     const commentsList = comments.map((comment) => {
@@ -132,7 +177,8 @@ const downloadItem = async (dir, feedItem) => {
   mkdir(dir);
   await downloadImages(dir, feedItem.images);
   await downloadFiles(dir, feedItem.files);
-  await downloadItemText(dir, feedItem)
+  await downloadEmbed(dir, feedItem.embed);
+  await downloadItemText(dir, feedItem);
 }
 
 const handleResponse = (resp) => {
